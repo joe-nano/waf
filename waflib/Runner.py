@@ -181,22 +181,17 @@ class Parallel(object):
 			if self.count:
 				self.get_out()
 			elif self.incomplete:
-				try:
-					cond = self.deadlock == self.processed
-				except AttributeError:
-					pass
-				else:
-					if cond:
-						msg = 'check the build order for the tasks'
-						for tsk in self.incomplete:
-							if not tsk.run_after:
-								msg = 'check the methods runnable_status'
-								break
-						lst = []
-						for tsk in self.incomplete:
-							lst.append('%s\t-> %r' % (repr(tsk), [id(x) for x in tsk.run_after]))
-						raise Errors.WafError('Deadlock detected: %s%s' % (msg, ''.join(lst)))
-				self.deadlock = self.processed
+				cond = self.deadlock == self.processed
+				if cond:
+					msg = 'check the build order for the tasks'
+					for tsk in self.incomplete:
+						if not tsk.run_after:
+							msg = 'check the methods runnable_status'
+							break
+					lst = []
+					for tsk in self.incomplete:
+						lst.append('%s\t-> %r' % (repr(tsk), [id(x) for x in tsk.run_after]))
+					raise Errors.WafError('Deadlock detected: %s%s' % (msg, ''.join(lst)))
 
 			if self.incomplete:
 				self.outstanding.extend(self.incomplete)
