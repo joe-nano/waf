@@ -20,7 +20,7 @@ SWIG_EXTS = ['.swig', '.i']
 re_module = re.compile('%module(?:\s*\(.*\))?\s+(.+)', re.M)
 
 re_1 = re.compile(r'^%module.*?\s+([\w]+)\s*?$', re.M)
-re_2 = re.compile('[#%]include [<"](.*)[">]', re.M)
+re_2 = re.compile(r'[#%]include [<"]?([\w\/\\.]+)[">]?',re.M)
 
 class swig(Task.Task):
 	color   = 'BLUE'
@@ -82,7 +82,7 @@ class swig(Task.Task):
 			# find .i files and project headers
 			names = re_2.findall(code)
 			for n in names:
-				for d in self.generator.includes_nodes + [node.parent]:
+				for d in c_preproc.get_header_nodepaths(self.generator.includes_nodes+[node.parent]):
 					u = d.find_resource(n)
 					if u:
 						to_see.append(u)
