@@ -26,7 +26,7 @@ A dumb preprocessor is also available in the tool *c_dumbpreproc*
 """
 # TODO: more varargs, pragma once
 
-import re, string, traceback
+import os, re, string, traceback
 from waflib import Logs, Utils, Errors
 from waflib.Logs import debug, error
 
@@ -1028,10 +1028,7 @@ def scan(task):
 	except AttributeError:
 		raise Errors.WafError('%r is missing a feature such as "c", "cxx" or "includes": ' % task.generator)
 
-	if go_absolute:
-		nodepaths = incn + [task.generator.bld.root.find_dir(x) for x in standard_includes]
-	else:
-		nodepaths = [x for x in incn if x.is_child_of(x.ctx.srcnode) or x.is_child_of(x.ctx.bldnode)]
+	nodepaths= get_header_nodepaths(incn)
 
 	tmp = c_parser(nodepaths)
 	tmp.start(task.inputs[0], task.env)
@@ -1039,3 +1036,13 @@ def scan(task):
 		debug('deps: deps for %r: %r; unresolved %r' % (task.inputs, tmp.nodes, tmp.names))
 	return (tmp.nodes, tmp.names)
 
+def get_header_nodepaths(includes):
+	# We want to find any includes that start with SCHRODINGER or
+	# SCHRODINGER_SRC since we care about header files even though the src and
+	# bld nodes may be subdirs thereof. The best example is
+	# $SCHRODINGER/$MMSHARE/include directory, and a build node might be
+	# $SCHRODINGER/$MMSHARE/canvaslibs
+	schrodinger = os.path.abspath(os.environ['SCHRODINGER'])
+	schrodinger_src = os.path.abspath(os.environ['SCHRODINGER_SRC'])
+	nodepaths=[x for x in includes if os.path.abspath(x.abspath()).startswith(schrodinger) or os.path.abspath(x.abspath()).startswith(schrodinger_src)]
+	return nodepaths

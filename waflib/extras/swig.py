@@ -20,7 +20,7 @@ SWIG_EXTS = ['.swig', '.i']
 re_module = re.compile('%module(?:\s*\(.*\))?\s+(.+)', re.M)
 
 re_1 = re.compile(r'^%module.*?\s+([\w]+)\s*?$', re.M)
-re_2 = re.compile('[#%]include [<"](.*)[">]', re.M)
+re_2 = re.compile(r'[#%]include [<"]?([\w\/\\.]+)[">]?',re.M)
 
 class swig(Task.Task):
 	color   = 'BLUE'
@@ -62,7 +62,7 @@ class swig(Task.Task):
 	def scan(self):
 		"scan for swig dependencies, climb the .i files"
 		lst_src = []
-
+		not_found = []
 		seen = []
 		to_see = [self.inputs[0]]
 
@@ -81,15 +81,15 @@ class swig(Task.Task):
 			# find .i files and project headers
 			names = re_2.findall(code)
 			for n in names:
-				for d in self.generator.includes_nodes + [node.parent]:
+				for d in c_preproc.get_header_nodepaths(self.generator.includes_nodes+[node.parent]):
 					u = d.find_resource(n)
 					if u:
 						to_see.append(u)
 						break
 				else:
-					Logs.warn('could not find %r' % n)
+					not_found.append(n)
 
-		return (lst_src, [])
+		return (lst_src, not_found)
 
 # provide additional language processing
 swig_langs = {}
@@ -130,7 +130,10 @@ def swig_c(self):
 
 @swigf
 def swig_python(tsk):
-	tsk.set_outputs(tsk.inputs[0].parent.find_or_declare(tsk.module + '.py'))
+        node = tsk.inputs[0].parent
+        if tsk.outdir:
+            node = tsk.outdir
+        tsk.set_outputs(node.find_or_declare(tsk.module+'.py'))
 
 @swigf
 def swig_ocaml(tsk):
@@ -147,9 +150,12 @@ def i_file(self, node):
 	flags = self.to_list(getattr(self, 'swig_flags', []))
 	tsk.env.append_value('SWIGFLAGS', flags)
 
-	# looks like this is causing problems
-	#if not '-outdir' in flags:
-	#	tsk.env.append_value('SWIGFLAGS', ['-outdir', node.parent.abspath()])
+        tsk.outdir = None
+        if '-outdir' in flags:
+            outdir = flags[flags.index('-outdir')+1]
+            outdir = tsk.generator.bld.bldnode.make_node(outdir)
+            outdir.mkdir()
+            tsk.outdir = outdir
 
 @conf
 def check_swig_version(self):
